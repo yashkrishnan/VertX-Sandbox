@@ -1,8 +1,10 @@
-package com.example.vertx.sandbox.tests;
+package com.example.vertx.sandbox.unittests;
 
+import com.example.vertx.sandbox.models.Juice;
 import com.example.vertx.sandbox.verticles.WebVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
@@ -75,7 +77,7 @@ public class WebVerticleTest {
         vertx.createHttpClient().getNow(port, "localhost", "/",
                 httpClientResponse -> httpClientResponse.handler(buffer -> {
                     String bodyContent = buffer.toString();
-                    testContext.assertTrue(bodyContent.contains("<title>My Juice Collection</title>"));
+                    testContext.assertTrue(bodyContent.contains(""));
                     async.complete();
                 }));
     }
@@ -91,5 +93,28 @@ public class WebVerticleTest {
                 async.complete();
             });
         });
+    }
+
+    @Test
+    public void checkAdd(TestContext testContext) {
+        Async async = testContext.async();
+        final String json = Json.encodePrettily(new Juice("Citrus Current", "Ireland"));
+        final String length = Integer.toString(json.length());
+        vertx.createHttpClient().post(port, "localhost", "/api/juices")
+                .putHeader("content-type", "application/json")
+                .putHeader("content-length", length)
+                .handler(response -> {
+                    testContext.assertEquals(response.statusCode(), 201);
+                    testContext.assertTrue(response.headers().get("content-type").contains("application/json"));
+                    response.bodyHandler(body -> {
+                        final Juice juice = Json.decodeValue(body.toString(), Juice.class);
+                        testContext.assertEquals(juice.getName(), "Citrus Current");
+                        testContext.assertEquals(juice.getOrigin(), "Ireland");
+                        testContext.assertNotNull(juice.getId());
+                        async.complete();
+                    });
+                })
+                .write(json)
+                .end();
     }
 }
